@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Game of Life</title>
+<meta charset="utf-8">
+<style type="text/css">
+body {
+	background-color: #E0E0E0;
+	margin: 0px;
+}
+#container {
+	width: 1000px;
+	margin: 0px auto;
+}
+</style>
+<script type="text/javascript">
+var grid = 10;
+
+////////////////////////////////////////////////////////////////////
+
+var canvas;
+var ctx;
+var width = 0;
+var height = 0;
+
+var grid_width = 0;
+var grid_height = 0;
+
+var grid_data = [];
+
+(function() {
+    var lastTime = 0;
+    var vendors = ['webkit', 'moz'];
+    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+        window.cancelAnimationFrame =
+          window[vendors[x]+'CancelAnimationFrame'] || window[vendors[x]+'CancelRequestAnimationFrame'];
+    }
+
+    if (!window.requestAnimationFrame)
+        window.requestAnimationFrame = function(callback, element) {
+            var currTime = new Date().getTime();
+            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+            var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+              timeToCall);
+            lastTime = currTime + timeToCall;
+            return id;
+        };
+
+    if (!window.cancelAnimationFrame)
+        window.cancelAnimationFrame = function(id) {
+            clearTimeout(id);
+        };
+}());
+
+var requestID = false;
+
+function init() {
+	canvas = document.getElementById('game_of_life');
+	ctx = canvas.getContext('2d');
+	width = canvas.width;
+	height = canvas.height;
+	
+	grid_width = width / grid;
+	grid_height = height / grid;
+	
+	var ix = 0;
+	var iy = 0;
+	
+	while (iy < grid_height) {
+		grid_data[iy] = [];
+		while (ix < grid_width) {
+			grid_data[iy][ix] = false;
+			ix++;
+		}
+		ix = 0;
+		iy++;
+	}
+	drawData();
+}
+
+function drawRect(x, y, black) {
+	x = (x * grid);
+	y = (y * grid);
+	black = (black ? true : false);
+	
+	if (black) {
+		ctx.fillStyle = "rgb(0,0,0)";
+	}
+	else {
+		ctx.fillStyle = "rgb(255,255,255)";
+	}
+	ctx.fillRect(x, y, grid, grid);
+}
+
+function drawData() {
+	for (iy in grid_data) {
+		for (ix in grid_data[iy]) {
+			drawRect(ix, iy, grid_data[iy][ix]);
+		}
+	}
+}
+
+function countNeighbours(x, y) {
+	x = parseInt(x);
+	y = parseInt(y);
+	
+	var data = [];
+	data[0] = [x, y-1];		// Boven
+	data[1] = [x+1, y-1];	// Rechtsboven
+	data[2] = [x+1, y];		// Rechts
+	data[3] = [x+1, y+1];	// Rechtsonder
+	data[4] = [x, y+1];		// Onder
+	data[5] = [x-1, y+1];	// Linksonder
+	data[6] = [x-1, y];		// Links
+	data[7] = [x-1, y-1];	// Linksboven
+	
+	var count = 0;
+	for (i in data) {
+		var x = data[i][0];
+		var y = data[i][1];
+		if (x > 0 && x < grid_width && y > 0 && y < grid_height) {
+			if (grid_data[y][x] === true) {
+				count++;
+			}
+		}
+	}
+	
+	return count;
+}
+
+function game_loop() {
+	var changes = [];
+	for (iy in grid_data) {
+		for (ix in grid_data[iy]) {
+			var neighbours = countNeighbours(ix, iy);
+			if (grid_data[iy][ix] === true) {
+				// Iedere levende cel met minder dan twee buren gaat dood.
+				if (neighbours < 2) {
+					changes[changes.length] = [ix, iy, false];
+				}
+				
+				// Iedere levende cel met 2 of 3 buren blijft leven.
+				if (neighbours == 2 || neighbours == 3) {
+					changes[changes.length] = [ix, iy, true];
+				}
+				
+				// Iedere levende cel met meer dan 3 buren gaat dood.
+				if (neighbours > 3) {
+					changes[changes.length] = [ix, iy, false];
+				}
+			}
+			else {
+				// Iedere dode cel met 3 levende buren komt tot leven.
+				if (neighbours == 3) {
+					changes[changes.length] = [ix, iy, true];
+				}
+			}
+		}
+	}
+	for (i in changes) {
+		grid_data[changes[i][1]][changes[i][0]] = changes[i][2];
+	}
+	drawData();
+	if (requestID) {
+		window.requestAnimationFrame(game_loop);
+	}
+}
+
+function game_start() {
+	if (!requestID) {
+		requestID = window.requestAnimationFrame(game_loop);
+	}
+}
+function game_stop() {
+	if (requestID) {
+		window.cancelAnimationFrame(requestID);
+		requestID = false;
+	}
+}
+
+function drawRectFromClick(e) {
+	var x;
+	var y;
+	if (e.pageX || e.pageY) { 
+		x = e.pageX;
+		y = e.pageY;
+	}
+	else { 
+		x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft; 
+		y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop; 
+	} 
+	x -= canvas.offsetLeft;
+	y -= canvas.offsetTop;
+
+	var ix = Math.floor(x / grid);
+	var iy = Math.floor(y / grid);
+	grid_data[iy][ix] = (grid_data[iy][ix] ? false : true);
+	drawData();
+}
+
+window.onload = init;
+</script>
+</head>
+<body>
+<div id="container">
+	<canvas id="game_of_life" width="1000" height="480" onclick="drawRectFromClick(event);"></canvas><br><br>
+	<input type="button" value="Start" onclick="game_start();">
+	<input type="button" value="Stop" onclick="game_stop();">
+</div>
+</body>
+</html>
